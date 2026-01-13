@@ -1,0 +1,1 @@
+Simple tests for [username] field in the Godel Mastery app
