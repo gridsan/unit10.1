@@ -5,111 +5,114 @@ import string
 
 BASE_URL = "http://192.168.80.77:8080/signUp"
 
-def signup_form(page, test_username):
+def signup_form(page, test_username, test_email):
         page.fill("input[name='username']", test_username)
-        page.wait_for_timeout(1000)
-        page.fill("input[name='email']", "testuser@gmail.com")
+        page.fill("input[name='email']", test_email)
         password_fields = page.locator("input[name='password']")
         password_fields.nth(0).fill("12345678")
         password_fields.nth(1).fill("12345678")
         page.fill('input[role="combobox"]', "Buyer")
 
+@pytest.fixture
+def page():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False)
+        page = browser.new_page()
+        page.goto(BASE_URL)
+        yield page
+        browser.close()
+
 
 test_username = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
 
 @pytest.mark.parametrize("iteration,expected_status", [(0, 200), (1, 400)])
-def test_signup_new_existing_username(iteration, expected_status):
+def test_signup_new_existing_username(iteration, expected_status, page):
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+    test_email = ''.join(random.choices(string.ascii_letters + string.digits, k=8))+"@gmail.com"
 
-        page.goto(BASE_URL)
+    signup_form(page, test_username, test_email)
 
-        signup_form(page, test_username)
+    with page.expect_response("**/api/v1/users/addUser") as response_info:
+        page.click("input[type='submit'][value='Sign Me Up']")
 
-        with page.expect_response("**/api/v1/users/addUser") as response_info:
-            page.click("input[type='submit'][value='Sign Me Up']")
+    response = response_info.value
 
-        response = response_info.value
+    print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
 
-        print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
-
-        assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
-
-        browser.close()
+    assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
 
 
+#this test should fail, as app allows to register with username that contains special symbols
 @pytest.mark.parametrize("iteration,expected_status", [(0, 400)])
-def test_signup_special_symbols_username(iteration, expected_status):
+def test_signup_special_symbols_username(iteration, expected_status, page):
 
     test_username = ''.join(random.choices(string.punctuation, k=10))
+    test_email = ''.join(random.choices(string.ascii_letters + string.digits, k=8))+"@gmail.com"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+    signup_form(page, test_username, test_email)
 
-        page.goto(BASE_URL)
-
-        signup_form(page, test_username)
-
-        with page.expect_response("**/api/v1/users/addUser") as response_info:
+    with page.expect_response("**/api/v1/users/addUser") as response_info:
             page.click("input[type='submit'][value='Sign Me Up']")
 
-        response = response_info.value
+    response = response_info.value
 
-        print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
+    print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
 
-        assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
-
-        browser.close()
+    assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
 
 
 @pytest.mark.parametrize("iteration,expected_status", [(0, 200), (1, 200), (2, 200), (3, 200)])
-def test_signup_min_max_username(iteration, expected_status):
+def test_signup_min_max_username(iteration, expected_status, page):
 
     length_list = [6, 7, 19, 20] 
     length = length_list[iteration]
 
     test_username = ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    test_email = ''.join(random.choices(string.ascii_letters + string.digits, k=8))+"@gmail.com"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
+    signup_form(page, test_username, test_email)
 
-        page.goto(BASE_URL)
+    with page.expect_response("**/api/v1/users/addUser") as response_info:
+        page.click("input[type='submit'][value='Sign Me Up']")
 
-        signup_form(page, test_username)
+    response = response_info.value
 
-        with page.expect_response("**/api/v1/users/addUser") as response_info:
-            page.click("input[type='submit'][value='Sign Me Up']")
+    print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
 
-        response = response_info.value
+    assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
 
-        print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
 
-        assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
-
-        browser.close()
-
-@pytest.mark.parametrize("iteration", [0, 1])
-def test_short_long_username(iteration):
-    length_list = [5, 21] 
+@pytest.mark.parametrize("iteration", [0, 1, 2])
+def test_short_long_username(iteration, page):
+    length_list = [5, 21, 0] 
 
     length = length_list[iteration]
     test_username = ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+    test_email = ''.join(random.choices(string.ascii_letters + string.digits, k=8))+"@gmail.com"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
-        page = browser.new_page()
-        page.goto(BASE_URL)
+    signup_form(page, test_username, test_email)
 
-        signup_form(page, test_username)
+    page.click("input[type='submit'][value='Sign Me Up']")
 
+    assert page.url.endswith("/signUp")
+
+
+test_email = ''.join(random.choices(string.ascii_letters + string.digits, k=8))+"@gmail.com"
+
+#2nd itteration in this test should fail as app allows to create new account with an existing username
+@pytest.mark.parametrize("iteration,expected_status", [(0, 200), (1, 400)])
+def test_signup_new_existing_emails(iteration, expected_status, page):
+
+    
+    test_username = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+    signup_form(page, test_username, test_email)
+
+    with page.expect_response("**/api/v1/users/addUser") as response_info:
         page.click("input[type='submit'][value='Sign Me Up']")
 
-        assert page.url.endswith("/signUp")
+    response = response_info.value
 
-        browser.close()
+    print(f"Iteration {iteration + 1} - URL: {response.url}, Status: {response.status}")
 
-
+    assert response.status == expected_status, f"Expected {expected_status}, got {response.status}"
